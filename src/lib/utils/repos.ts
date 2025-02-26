@@ -1,13 +1,13 @@
-import type { RegistryRepo } from '$lib/models/repo';
-import { getDockerTagsNew } from '$lib/utils/tags';
+import type { RegistryRepos } from '$lib/types/api.type';
+import { getDockerTags } from '$lib/utils/manifest/index.ts';
 import axios, { AxiosError } from 'axios';
 import { env } from '$env/dynamic/public';
 import { Buffer } from 'buffer';
 import { Logger } from '$lib/services/logger';
-
-interface RegistryRepos {
-	repositories: RegistryRepo[];
-}
+import type { Namespace, NamespaceMetadata } from '$lib/types/namespace.type';
+import type { Tag } from '$lib/types/tag.type';
+import type { Image } from '$lib/types/image.type';
+import { formatSize } from '$lib/utils/manifest/helpers';
 
 /**
  * Extracts the namespace from a full repository name
@@ -36,9 +36,9 @@ function getAuthHeaders() {
 /**
  * Fetches all repositories from the registry and organizes them by namespace
  * @param url Registry URL
- * @returns Promise resolving to organized repositories
+ * @returns Promise resolving to array of Namespaces
  */
-export async function getRegistryReposAxios(url: string): Promise<RegistryRepos> {
+export async function getRegistryReposAxios(url: string): Promise<Namespace[]> {
 	const logger = Logger.getInstance('RegistryRepos');
 
 	try {
@@ -69,34 +69,66 @@ export async function getRegistryReposAxios(url: string): Promise<RegistryRepos>
 		});
 
 		// Process each namespace
-		const namespacePromises = Object.entries(reposByNamespace).map(async ([namespace, repos]) => {
-			// Create a namespace object
-			const namespaceObj: RegistryRepo = {
-				name: namespace,
-				images: []
+		const namespacePromises = Object.entries(reposByNamespace).map(async ([namespaceName, repos]) => {
+			// Create a namespace object with the new type
+			const namespaceObj: Namespace = {
+				name: namespaceName,
+				path: namespaceName,
+				images: [],
+				lastSynced: new Date(),
+				metadata: {
+					imageCount: 0,
+					totalSize: '0 B',
+					description: undefined
+				}
 			};
 
 			// Fetch tags for each repository in parallel
 			const imagePromises = repos.map(async (repo) => {
 				try {
+					// Get the image name from the repo path
+					const imageName = repo.includes('/') ? repo.split('/')[1] : repo;
+
 					// Pass the base registry URL, not the catalog URL
-					const repoData = await getDockerTagsNew(baseRegistryUrl, repo);
-					namespaceObj.images.push(repoData);
+					const repoData = await getDockerTags(baseRegistryUrl, repo);
+
+					// Convert RepoImage to the new Image type
+					const image: Image = {
+						name: imageName,
+						fullName: repo,
+						tags: repoData.tags.map((tag) => ({
+							name: tag.name,
+							metadata: tag.metadata
+						})),
+						metadata: {
+							lastUpdated: getLastUpdatedFromTags(repoData.tags)
+						}
+					};
+
+					namespaceObj.images.push(image);
 				} catch (error) {
 					logger.error(`Error fetching tags for ${repo}:`, error instanceof Error ? error.message : String(error));
 				}
 			});
 
 			await Promise.all(imagePromises);
+
+			// Update metadata after all images are fetched
+			if (namespaceObj.images.length > 0) {
+				namespaceObj.metadata = {
+					imageCount: namespaceObj.images.length,
+					totalSize: calculateTotalSize(namespaceObj.images),
+					description: undefined
+				};
+			}
+
 			return namespaceObj;
 		});
 
 		const namespaces = await Promise.all(namespacePromises);
 
 		// Filter out empty namespaces
-		const filteredNamespaces = namespaces.filter((ns) => ns.images.length > 0);
-
-		return { repositories: filteredNamespaces };
+		return namespaces.filter((ns) => ns.images.length > 0);
 	} catch (error) {
 		// Improved error logging with type safety and details
 		if (axios.isAxiosError(error)) {
@@ -109,6 +141,40 @@ export async function getRegistryReposAxios(url: string): Promise<RegistryRepos>
 		} else {
 			logger.error(`Failed to fetch repositories from ${url}:`, error instanceof Error ? error.message : String(error));
 		}
-		return { repositories: [] };
+		return [];
+	}
+}
+
+// Helper function to get the last updated date from tags
+function getLastUpdatedFromTags(tags: Tag[]): Date | undefined {
+	try {
+		const dates = tags.filter((tag) => tag?.metadata?.created).map((tag) => new Date(tag.metadata!.created!));
+
+		if (dates.length === 0) return undefined;
+
+		return new Date(Math.max(...dates.map((date) => date.getTime())));
+	} catch (error) {
+		console.error('Error finding latest date:', error);
+		return undefined;
+	}
+}
+
+// Helper function to calculate total size
+function calculateTotalSize(images: Image[]): string {
+	try {
+		let totalBytes = 0;
+
+		images.forEach((image) => {
+			image.tags.forEach((tag) => {
+				if (tag.metadata?.totalSize) {
+					totalBytes += Number(tag.metadata.totalSize);
+				}
+			});
+		});
+
+		return formatSize(totalBytes);
+	} catch (error) {
+		console.error('Error calculating total size:', error);
+		return '0 B';
 	}
 }

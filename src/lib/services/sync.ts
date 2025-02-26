@@ -4,6 +4,8 @@ import { RegistryCache } from './db';
 import { env } from '$env/dynamic/public';
 import { Logger } from '$lib/services/logger';
 import { dev } from '$app/environment';
+import { convertToNewModel } from '$lib/types/utils/type-migration';
+import type { Namespace } from '$lib/types/namespace.type';
 
 export class RegistrySyncService {
 	private static instance: RegistrySyncService;
@@ -18,11 +20,10 @@ export class RegistrySyncService {
 		this.cronJob = cron.schedule('*/5 * * * *', async () => {
 			try {
 				this.logger.info('Starting registry sync...');
-				const registryData = await getRegistryReposAxios(env.PUBLIC_REGISTRY_URL + '/v2/_catalog');
-				await RegistryCache.syncFromRegistry(registryData.repositories);
+				await this.performSync();
 				this.logger.info('Registry sync completed successfully');
 			} catch (error) {
-				console.error('Registry sync failed:', error);
+				this.logger.error('Registry sync failed:', error);
 			}
 		});
 	}
@@ -35,8 +36,22 @@ export class RegistrySyncService {
 
 		this.isSyncing = true;
 		try {
+			// Fetch data using the existing API
 			const registryData = await getRegistryReposAxios(env.PUBLIC_REGISTRY_URL + '/v2/_catalog');
+
+			// For backward compatibility, still sync with the old method
+			// This can be removed once full migration is complete
 			await RegistryCache.syncFromRegistry(registryData.repositories);
+
+			// Convert to new model structure
+			this.logger.debug('Converting repositories to namespace model');
+			const namespaces: Namespace[] = convertToNewModel(registryData.repositories);
+
+			// Sync using the new model
+			this.logger.debug(`Syncing ${namespaces.length} namespaces with new model`);
+			await RegistryCache.syncFromRegistryWithNewModel(namespaces);
+
+			this.logger.info(`Registry sync completed with ${namespaces.length} namespaces`);
 		} catch (error) {
 			this.logger.error('Registry sync failed', error);
 		} finally {

@@ -1,5 +1,8 @@
 // file: tests/e2e/mocks.ts
-import type { RegistryRepo } from '$lib/models/repo';
+
+import type { RegistryRepo } from '$lib/types/repo';
+import type { Namespace } from '$lib/types/namespace.type';
+
 
 export const mockHealthStatus = {
 	isHealthy: true,
@@ -16,87 +19,92 @@ export const unhealthyStatus = {
 };
 
 export const basicMock = {
-	repos: {
-		repositories: [
-			{
-				name: 'namespace1',
-				images: [
-					{
-						name: 'frontend-app',
-						fullName: 'namespace1/frontend-app',
-						tags: [
-							{
-								name: 'latest',
-								metadata: {
-									created: '2025-02-01T12:00:00Z',
-									os: 'linux',
-									architecture: 'amd64',
-									author: 'Developer Name',
-									dockerFile: 'FROM node:18\nWORKDIR /app\nCOPY . .\nRUN npm install\nCMD ["npm", "start"]',
-									configDigest: 'sha256:abc123',
-									exposedPorts: ['3000/tcp', '8080/tcp'],
-									totalSize: '245.8 MB',
-									workDir: '/app',
-									command: 'npm start',
-									description: 'Frontend application',
-									contentDigest: 'sha256:def456',
-									entrypoint: 'docker-entrypoint.sh',
-									indexDigest: 'sha256:ghi789',
-									isOCI: true
-								}
-							},
-							{
-								name: 'v1.0.0',
-								metadata: {
-									created: '2025-01-15T10:30:00Z',
-									os: 'linux',
-									architecture: 'amd64',
-									author: 'Developer Name',
-									dockerFile: 'FROM node:16\nWORKDIR /app\nCOPY . .\nRUN npm install\nCMD ["npm", "start"]',
-									configDigest: 'sha256:xyz987',
-									exposedPorts: ['3000/tcp'],
-									totalSize: '230.5 MB',
-									workDir: '/app',
-									command: 'npm start',
-									description: 'Frontend application v1.0.0',
-									contentDigest: 'sha256:uvw654',
-									entrypoint: 'docker-entrypoint.sh',
-									indexDigest: 'sha256:rst321',
-									isOCI: false
-								}
+	namespaces: [
+		{
+			name: 'namespace1',
+			path: 'namespace1',
+			lastSynced: new Date('2025-02-01T12:00:00Z'),
+			metadata: {
+				imageCount: 2,
+				totalSize: '476.3 MB'
+			},
+			images: [
+				{
+					name: 'frontend-app',
+					fullName: 'namespace1/frontend-app',
+					tags: [
+						{
+							name: 'latest',
+							metadata: {
+								created: '2025-02-01T12:00:00Z',
+								os: 'linux',
+								architecture: 'amd64',
+								author: 'Developer Name',
+								dockerFile: 'FROM node:18\nWORKDIR /app\nCOPY . .\nRUN npm install\nCMD ["npm", "start"]',
+								configDigest: 'sha256:abc123',
+								exposedPorts: ['3000/tcp', '8080/tcp'],
+								totalSize: '245.8 MB',
+								workDir: '/app',
+								command: 'npm start',
+								description: 'Frontend application',
+								contentDigest: 'sha256:def456',
+								entrypoint: 'docker-entrypoint.sh',
+								indexDigest: 'sha256:ghi789',
+								isOCI: true
 							}
-						]
-					},
-					{
-						name: 'backend-api',
-						fullName: 'namespace1/backend-api',
-						tags: [
-							{
-								name: 'latest',
-								metadata: {
-									created: '2025-02-05T15:45:00Z',
-									os: 'linux',
-									architecture: 'amd64',
-									author: 'Unknown',
-									dockerFile: 'FROM golang:1.19\nWORKDIR /go/src/app\nCOPY . .\nRUN go build\nCMD ["./app"]',
-									configDigest: 'sha256:123abc',
-									exposedPorts: ['8000/tcp'],
-									totalSize: '156.2 MB',
-									workDir: '/go/src/app',
-									command: './app',
-									description: 'Backend API service',
-									contentDigest: 'sha256:456def',
-									entrypoint: 'Unknown Entrypoint',
-									indexDigest: 'sha256:789ghi',
-									isOCI: false
-								}
+						},
+						{
+							name: 'v1.0.0',
+							metadata: {
+								created: '2025-01-15T10:30:00Z',
+								os: 'linux',
+								architecture: 'amd64',
+								author: 'Developer Name',
+								dockerFile: 'FROM node:16\nWORKDIR /app\nCOPY . .\nRUN npm install\nCMD ["npm", "start"]',
+								configDigest: 'sha256:xyz987',
+								exposedPorts: ['3000/tcp'],
+								totalSize: '230.5 MB',
+								workDir: '/app',
+								command: 'npm start',
+								description: 'Frontend application v1.0.0',
+								contentDigest: 'sha256:uvw654',
+								entrypoint: 'docker-entrypoint.sh',
+								indexDigest: 'sha256:rst321',
+								isOCI: false
 							}
-						]
-					}
-				]
-			}
-		]
-	},
+						}
+					]
+				},
+				{
+					name: 'backend-api',
+					fullName: 'namespace1/backend-api',
+					tags: [
+						{
+							name: 'latest',
+							metadata: {
+								created: '2025-02-05T15:45:00Z',
+								os: 'linux',
+								architecture: 'amd64',
+								author: 'Unknown',
+								dockerFile: 'FROM golang:1.19\nWORKDIR /go/src/app\nCOPY . .\nRUN go build\nCMD ["./app"]',
+								configDigest: 'sha256:123abc',
+								exposedPorts: ['8000/tcp'],
+								totalSize: '156.2 MB',
+								workDir: '/go/src/app',
+								command: './app',
+								description: 'Backend API service',
+								contentDigest: 'sha256:456def',
+								entrypoint: 'Unknown Entrypoint',
+								indexDigest: 'sha256:789ghi',
+								isOCI: false
+							}
+						}
+					]
+				}
+			]
+		}
+	],
+
 	error: null,
 	healthStatus: mockHealthStatus
 };
@@ -206,4 +214,39 @@ export const tagDetailsMock = {
 	},
 	tagIndex: 0,
 	isLatest: true
+};
+
+export const basicNamespaceMock = {
+	namespaces: [
+		{
+			name: 'namespace1',
+			path: 'namespace1',
+			lastSynced: new Date('2025-02-01T12:00:00Z'),
+			metadata: {
+				imageCount: 2,
+				totalSize: '476.3 MB'
+			},
+			images: [
+				{
+					name: 'frontend-app',
+					fullName: 'namespace1/frontend-app',
+					metadata: {
+						lastUpdated: new Date('2025-02-01T12:00:00Z')
+					},
+					tags: [
+						{
+							name: 'latest',
+							metadata: {
+								created: '2025-02-01T12:00:00Z',
+								os: 'linux',
+								architecture: 'amd64'
+							}
+						}
+					]
+				}
+			]
+		}
+	],
+	error: null,
+	healthStatus: mockHealthStatus
 };

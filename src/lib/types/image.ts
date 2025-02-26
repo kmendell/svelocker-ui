@@ -1,4 +1,4 @@
-import type { ImageTag } from '$lib/models/tag.ts';
+import type { ImageTag } from '$lib/types/tag';
 
 export type RepoImage = {
 	name: string; // image name without namespace

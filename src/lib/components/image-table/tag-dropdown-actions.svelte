@@ -2,57 +2,58 @@
 	import { Tag } from 'lucide-svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import type { ImageTag } from '$lib/models/tag.ts';
+	import type { Tag as ImageTag } from '$lib/types/tag.type';
 	import { derived } from 'svelte/store';
 	import { readable } from 'svelte/store';
-	import type { RegistryRepo } from '$lib/models/repo';
 
-	// let { tags }: { tags: ImageTag[] } = $props();
-	let {
-		tags,
-		data,
-		imageFullName,
-		imageName
-	}: {
-		tags: ImageTag[];
-		data: RegistryRepo[];
-		imageFullName: string;
-		imageName: string;
-	} = $props();
+	export let tags: ImageTag[] = [];
+	export let namespace: string = '';
+	export let imageFullName: string = '';
+	export let imageName: string = '';
 
-	const tagsStore = readable(tags);
+	const tagsStore = readable(tags || []);
 
 	// Sort tags reactively to keep 'latest' at the top
 	const sortedTags = derived(tagsStore, ($tags) => {
-		return [...$tags].sort((a, b) => {
+		return [...($tags || [])].sort((a, b) => {
+			if (!a || !b) return 0;
 			if (a.name === 'latest') return -1;
 			if (b.name === 'latest') return 1;
-			return a.name.localeCompare(b.name);
+			return (a.name || '').localeCompare(b.name || '');
 		});
 	});
 
+	// Safe tag count accessor
+	$: tagCount = tags?.length || 0;
+	$: firstTagName = tags?.[0]?.name || 'Tags';
 	// Generate a unique ID for this dropdown
 	const dropdownId = `tag-dropdown-${imageFullName.replace(/[^\w]/g, '-')}`;
 </script>
 
-<DropdownMenu.Root>
-	<DropdownMenu.Trigger>
-		<Button data-testid={`tag-button-${imageName}`} data-dropdown-id={dropdownId} variant="ghost" size="icon" class="relative size-8 p-0">
-			<span class="sr-only">Open menu</span>
-			<Tag />
-		</Button>
-	</DropdownMenu.Trigger>
-	<DropdownMenu.Content data-testid={`dropdown-content-${imageName}`}>
-		<DropdownMenu.Group>
-			<DropdownMenu.GroupHeading class="font-bold flex items-center justify-center">Tags</DropdownMenu.GroupHeading>
+<div data-testid={`tag-button-${imageName}`} class="flex items-center space-x-2">
+	<DropdownMenu.Root>
+		<DropdownMenu.Trigger>
+			<Button data-testid={`tag-button-${imageName}`} data-dropdown-id={dropdownId} variant="ghost" size="icon" class="relative size-8 p-0">
+				<span class="sr-only">Open menu</span>
+				<Tag />
+			</Button>
+		</DropdownMenu.Trigger>
+		<DropdownMenu.Content class="w-56" data-testid={`dropdown-content-${imageName}`} align="start">
+			<DropdownMenu.Label class="font-bold flex items-center justify-center">Select a Tag</DropdownMenu.Label>
 			<DropdownMenu.Separator />
-			{#each $sortedTags as tag}
-				<DropdownMenu.Item role="menuitem" class="font-bold flex items-center justify-center ">
-					<a href="/details/{imageFullName.includes('/') ? imageFullName : `library/${imageFullName}`}/{tag.name}" class={tag.name === 'latest' ? 'text-green-400' : ''}>
-						{tag.name}
-					</a>
-				</DropdownMenu.Item>
-			{/each}
-		</DropdownMenu.Group>
-	</DropdownMenu.Content>
-</DropdownMenu.Root>
+			{#if $sortedTags.length > 0}
+				{#each $sortedTags as tag}
+					{#if tag && tag.name}
+						<DropdownMenu.Item role="menuitem" class="font-bold flex items-center justify-center ">
+							<a href="/details/{imageName}/{tag.name}" class={tag.name === 'latest' ? 'text-green-400' : ''}>
+								{tag.name}
+							</a>
+						</DropdownMenu.Item>
+					{:else}
+						<DropdownMenu.Item disabled>No tags available</DropdownMenu.Item>
+					{/if}
+				{/each}
+			{/if}
+		</DropdownMenu.Content>
+	</DropdownMenu.Root>
+</div>

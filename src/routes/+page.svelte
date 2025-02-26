@@ -1,31 +1,43 @@
 <script lang="ts">
-	import RepoCard from '$lib/components/RepoCard.svelte';
+	import NamespaceCard from '$lib/components/RepoCard.svelte';
 	import { writable, derived } from 'svelte/store';
 	import * as Pagination from '$lib/components/ui/pagination/index.js';
 	import { Input } from '$lib/components/ui/input';
 	import { Search, AlertCircle } from 'lucide-svelte';
-	import type { PageProps } from './$types';
+	import type { PageData } from './$types';
 	import { env } from '$env/dynamic/public';
 	import SyncButton from '$lib/components/SyncButton.svelte';
-	import type { RegistryRepo } from '$lib/models/repo';
+	import type { Namespace } from '$lib/types/namespace.type';
 
-	let { data }: PageProps = $props();
-	const isHealthy = data.healthStatus.isHealthy;
+	export let data: PageData;
+
+	// Safely access data properties
+	$: isHealthy = data?.healthStatus?.isHealthy ?? false;
+
 	const searchQuery = writable('');
 
-	// Constants
+	// Constants for pagination
 	const ITEMS_PER_PAGE = 5;
 	const currentPage = writable(1);
 
-	// Create a store for the repositories
-	const repositories = writable(data.repos?.repositories || []);
+	// Initialize namespace store with safe default
+	const namespaces = writable<Namespace[]>(data?.namespaces || []);
 
-	// Filter data based on search, including root-level images
-	const filteredData = derived([repositories, searchQuery], ([$repositories, $searchQuery]) => {
-		return $repositories.filter((repo) => {
-			const searchTerms = $searchQuery.toLowerCase();
-			// Search in both namespace and image names
-			return repo.name.toLowerCase().includes(searchTerms) || repo.images.some((img) => img.name.toLowerCase().includes(searchTerms));
+	// Update store when data changes
+	$: {
+		if (data?.namespaces) {
+			namespaces.set(data.namespaces);
+		}
+	}
+
+	// Safe filtering with null checks
+	const filteredData = derived([namespaces, searchQuery], ([$namespaces, $searchQuery]) => {
+		return ($namespaces || []).filter((namespace) => {
+			if (!namespace) return false;
+
+			const searchTerms = ($searchQuery || '').toLowerCase();
+			// Search in both namespace name and image names
+			return (namespace.name || '').toLowerCase().includes(searchTerms) || (namespace.images || []).some((img) => img && (img.name || '').toLowerCase().includes(searchTerms));
 		});
 	});
 
@@ -55,21 +67,23 @@
 </svelte:head>
 
 <div class="mx-auto py-6 flex-1 w-full flex-col bg-muted/50">
-	{#if data.error}
+	{#if data?.error}
 		<div class="flex items-center ml-10 mr-10 gap-2 p-4 border rounded-lg bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800">
 			<AlertCircle size={20} class="text-red-600 dark:text-red-400" />
-			<p class="text-red-600 dark:text-red-400 font-medium">Unable to connect to registry at {env.PUBLIC_REGISTRY_URL}. Please check your connection and registry status.</p>
+			<p class="text-red-600 dark:text-red-400 font-medium">
+				Unable to connect to registry at {env.PUBLIC_REGISTRY_URL}. Please check your connection and registry status.
+			</p>
 		</div>
 	{/if}
 
-	{#if data.repos}
+	{#if data?.namespaces !== undefined}
 		<div class="flex-1 w-full flex-col justify-between">
-			{#if $repositories.length > 0}
+			{#if $namespaces && $namespaces.length > 0}
 				<div class="flex justify-between items-start px-10 pt-10">
 					<div class="space-y-2">
 						<h2 class="text-2xl">
 							Found {$filteredData.length}
-							{$filteredData.length === 1 ? 'Repository' : 'Repositories'} in {env.PUBLIC_REGISTRY_NAME}
+							{$filteredData.length === 1 ? 'Namespace' : 'Namespaces'} in {env.PUBLIC_REGISTRY_NAME}
 						</h2>
 						{#if isHealthy !== undefined}
 							<div class="flex items-center gap-2">
@@ -84,14 +98,14 @@
 						<SyncButton />
 						<div class="relative w-[250px]">
 							<Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-							<Input type="search" placeholder="Search repositories..." class="pl-8" bind:value={$searchQuery} />
+							<Input type="search" placeholder="Search namespaces..." class="pl-8" bind:value={$searchQuery} />
 						</div>
 					</div>
 				</div>
 				{#if $filteredData.length > 0}
-					<!-- RepoCard List -->
+					<!-- NamespaceCard List -->
 					<div class="grid grid-cols-1 gap-4" style="margin-bottom: 2em;">
-						<RepoCard filteredData={$paginatedData as unknown as RegistryRepo[]} />
+						<NamespaceCard namespaces={$paginatedData} />
 					</div>
 
 					<!-- Pagination Component -->
@@ -133,6 +147,10 @@
 					<h2 class="text-lg poppins">Could not pull registry data...</h2>
 				</div>
 			{/if}
+		</div>
+	{:else}
+		<div class="grid grid-cols-1 gap-4 p-10">
+			<h2 class="text-lg poppins">Loading registry data...</h2>
 		</div>
 	{/if}
 </div>

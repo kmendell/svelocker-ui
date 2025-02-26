@@ -1,4 +1,4 @@
-import type { RepoImage } from '$lib/models/image.ts';
+import type { RepoImage } from '$lib/types/image';
 
 export type RegistryRepo = {
 	name: string; // namespace (e.g. "ofkm")

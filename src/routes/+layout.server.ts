@@ -3,13 +3,15 @@ import { env } from '$env/dynamic/public';
 import { getRegistryReposAxios } from '$lib/utils/repos';
 import { checkRegistryHealth } from '$lib/utils/health';
 import { RegistryCache } from '$lib/services/db';
-// Import the mocks for testing
+import { convertToNewModel } from '$lib/types/utils/type-migration';
+import type { Namespace } from '$lib/types/namespace.type';
+import type { LayoutServerLoad } from './$types';
 import { basicMock, searchMock, paginationMock, errorMock, emptyMock, tagDetailsMock, unhealthyStatus } from '../../tests/e2e/mocks.ts';
 
-export async function load({ url }) {
+export const load: LayoutServerLoad = async ({ url }) => {
 	const logger = Logger.getInstance('LayoutServer');
 
-	// Mock data for tests based on URL parameter
+	// Handle mock data for tests
 	if (process.env.PLAYWRIGHT === 'true') {
 		const mockType = url.searchParams.get('mock');
 		logger.debug('Using mock type:', mockType);
@@ -32,8 +34,8 @@ export async function load({ url }) {
 
 			case 'unhealthy':
 				return {
-					repos: { repositories: [] },
-					error: null,
+					namespaces: [], // Empty array with new type
+					error: 'Unable to connect to registry',
 					healthStatus: unhealthyStatus
 				};
 
@@ -47,52 +49,63 @@ export async function load({ url }) {
 	}
 
 	try {
-		// Check registry health first
-		logger.info(`Checking registry health at ${env.PUBLIC_REGISTRY_URL}`);
-		const healthStatus = await checkRegistryHealth(env.PUBLIC_REGISTRY_URL);
+		// Get registry URL from environment
+		const registryUrl = env.PUBLIC_REGISTRY_URL;
+		logger.info(`Using registry URL: ${registryUrl}`);
 
-		// Get fresh data from registry
-		logger.info('Fetching registry data');
-		const registryData = await getRegistryReposAxios(env.PUBLIC_REGISTRY_URL + '/v2/_catalog');
+		// Check registry health
+		const healthStatus = await checkRegistryHealth(registryUrl);
 
-		// Sync to cache
-		await RegistryCache.syncFromRegistry(registryData.repositories);
-		const repositories = RegistryCache.getRepositories();
-
-		logger.info(`Successfully retrieved ${repositories.length} repositories`);
-
-		return {
-			repos: { repositories },
-			healthStatus
-		};
-	} catch (error) {
-		logger.error('Failed to fetch registry data:', error);
-
-		// Try to return cached data on failure
-		try {
-			const repositories = RegistryCache.getRepositories();
-			logger.info(`Falling back to cached data with ${repositories.length} repositories`);
-
+		if (!healthStatus.isHealthy) {
+			logger.error(`Registry is unhealthy: ${healthStatus.message}`);
 			return {
-				repos: { repositories },
-				healthStatus: {
-					isHealthy: false,
-					supportsV2: false,
-					needsAuth: false,
-					message: 'Failed to connect to registry'
-				}
-			};
-		} catch (cacheError) {
-			logger.error('Cache retrieval failed:', cacheError);
-			return {
-				error: true,
-				healthStatus: {
-					isHealthy: false,
-					supportsV2: false,
-					needsAuth: false,
-					message: 'Failed to connect to registry and cache'
-				}
+				namespaces: [],
+				error: 'Unable to connect to registry',
+				healthStatus
 			};
 		}
+
+		// Fetch repos from registry or cache
+		let namespaces;
+		try {
+			// Try to get from cache first
+			// repos = RegistryCache.getRepositories() || [];
+			namespaces = RegistryCache.getNamespaces();
+			logger.debug(`Retrieved ${namespaces.length} namespaces from cache`);
+		} catch (e) {
+			// If cache doesn't exist or is invalid, fetch fresh data
+			logger.warn('Cache retrieval failed, fetching fresh data:', e);
+			namespaces = await getRegistryReposAxios(registryUrl);
+			// Then sync it to DB
+			// await RegistryCache.syncFromRegistry(repos || { repositories: [] }.repositories);
+			await RegistryCache.syncFromRegistryWithNewModel(namespaces);
+			logger.info(`Synced ${namespaces?.length || 0} repositories to cache`);
+		}
+
+		// Convert legacy repo model to new namespace model with safe defaults
+		// const namespaces: Namespace[] = convertToNewModel(repos || []);
+		// logger.debug(`Converted ${repos?.length || 0} repositories to ${namespaces.length} namespaces`);
+
+		// Return the transformed data
+		return {
+			namespaces,
+			error: null,
+			healthStatus
+		};
+	} catch (error: unknown) {
+		// Error handling
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		logger.error(`Error loading registry data: ${errorMessage}`);
+
+		return {
+			namespaces: [],
+			error: `Failed to load registry data: ${errorMessage}`,
+			healthStatus: {
+				isHealthy: false,
+				supportsV2: false,
+				needsAuth: false,
+				message: 'Error occurred while checking registry health'
+			}
+		};
 	}
-}
+};

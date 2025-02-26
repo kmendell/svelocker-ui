@@ -1,4 +1,4 @@
-import type { ImageMetadata } from '$lib/models/metadata.ts';
+import type { ImageMetadata } from '$lib/types/metadata';
 
 export type ImageTag = {
 	name: string;

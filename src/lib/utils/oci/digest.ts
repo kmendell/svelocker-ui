@@ -1,23 +1,14 @@
+// src/lib/utils/oci/digest.ts
 import { createHash } from 'crypto';
 import { Logger } from '$lib/services/logger';
 
 const logger = Logger.getInstance('OCIManifest');
 
-export async function filterAttestationManifests(manifestJson: string): Promise<string> {
-	const manifest = JSON.parse(manifestJson);
-
-	if (manifest.manifests) {
-		// Filter out attestation manifests
-		manifest.manifests = manifest.manifests.filter((m: any) => !m.annotations?.['vnd.docker.reference.type']);
-
-		// Ensure deterministic ordering
-		manifest.manifests.sort((a: any, b: any) => a.digest.localeCompare(b.digest));
-	}
-
-	// Ensure deterministic JSON stringification
-	return JSON.stringify(manifest, null, 2);
-}
-
+/**
+ * Calculates SHA256 hash for content
+ * @param content Content to hash
+ * @returns SHA256 hash prefixed with "sha256:"
+ */
 export async function calculateSha256(content: string): Promise<string> {
 	try {
 		const hash = createHash('sha256');

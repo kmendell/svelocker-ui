@@ -32,7 +32,8 @@
 		});
 	}
 
-	$: currentTag = data.tag.tags[data.tagIndex];
+	// $: currentTag = data.tag.tags[data.tagIndex];
+	$: currentTag = data?.image?.tags?.[data?.tagIndex];
 
 	async function deleteTagBackend(name: string, digest: string) {
 		if (!digest) {
@@ -95,7 +96,7 @@
 				{#if data.repo !== 'library'}
 					<Breadcrumb.Item>
 						<Breadcrumb.Link href="/" class="text-muted-foreground hover:text-foreground">
-							{data.repo}
+							{data.namespace}
 						</Breadcrumb.Link>
 					</Breadcrumb.Item>
 					<Breadcrumb.Separator>
