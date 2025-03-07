@@ -60,6 +60,6 @@
     "json": "^11.0.0",
     "node-cron": "^3.0.3",
     "stream-browserify": "^3.0.0",
-    "tailwindcss": "^4.0.9"
+    "tailwindcss": "^4.0.12"
   }
 }
