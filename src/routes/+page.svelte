@@ -7,6 +7,7 @@
 	import type { PageProps } from './$types';
 	import { env } from '$env/dynamic/public';
 	import SyncButton from '$lib/components/SyncButton.svelte';
+	import GarbageCollectButton from '$lib/components/GarbageCollectButton.svelte';
 	import type { RegistryRepo } from '$lib/models/repo';
 	import { onMount } from 'svelte';
 	import { lastSyncTimestamp, isSyncing } from '$lib/stores/sync-store';
@@ -95,7 +96,6 @@
 			<p class="text-red-600 dark:text-red-400 font-medium">Unable to connect to registry at {env.PUBLIC_REGISTRY_URL}. Please check your connection and registry status.</p>
 		</div>
 	{/if}
-
 	<div class="flex-1 w-full flex-col justify-between">
 		<div class="flex justify-between items-start px-10 pt-10">
 			<div class="space-y-2">
@@ -114,6 +114,9 @@
 			</div>
 			<div class="flex items-center gap-4">
 				<SyncButton />
+        	  {#if env.PUBLIC_ENABLE_GARBAGE_COLLECT === 'true'}
+							<GarbageCollectButton />
+						{/if}
 				<div class="relative w-[250px]">
 					<Search class="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
 					<Input type="search" placeholder="Search repositories..." class="pl-8" bind:value={$searchQuery} />
